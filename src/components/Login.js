@@ -5,7 +5,9 @@ import { loginUser, fetchCurrentUser } from "../api";
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
 
@@ -18,8 +20,23 @@ const Login = () => {
     }
   }, []);
 
+  const validateForm = () => {
+    if (username.length < 3) {
+      setError("Username must be at least 3 characters");
+      return false;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+    
+    setLoading(true);
     try {
       const res = await loginUser(username, password);
       localStorage.setItem("access_token", res.data.access_token);
@@ -31,6 +48,8 @@ const Login = () => {
     } catch (err) {
       setError("Invalid username or password");
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,41 +108,74 @@ const Login = () => {
             type="text"
             placeholder="Username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setError("");
+            }}
             required
             style={{
               padding: "10px",
               borderRadius: "6px",
-              border: "1px solid #ccc"
+              border: error.includes("Username") ? "1px solid red" : "1px solid #ccc"
             }}
           />
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{
-              padding: "10px",
-              borderRadius: "6px",
-              border: "1px solid #ccc"
-            }}
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
+              required
+              style={{
+                padding: "10px",
+                borderRadius: "6px",
+                width: "100%",
+                border: error.includes("Password") ? "1px solid red" : "1px solid #ccc"
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "16px"
+              }}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               padding: "12px",
               borderRadius: "6px",
-              backgroundColor: "#007bff",
+              backgroundColor: loading ? "#6c757d" : "#007bff",
               color: "white",
               fontWeight: "bold",
               border: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px"
             }}
           >
-            Login
+            {loading && (
+              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            )}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
