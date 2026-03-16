@@ -64,7 +64,8 @@ export const getRecent = () => api.get("/recent");
 // -------------------------
 // 6. PREDICT SINGLE TRANSACTION
 // -------------------------
-export const predictSingle = (features) => api.post("/predict", features);
+// api.js
+export const predictSingle = (features) => api.post("/predict", { features_input: features });
 
 // -------------------------
 // 7. PREDICT BATCH TRANSACTIONS (CSV)

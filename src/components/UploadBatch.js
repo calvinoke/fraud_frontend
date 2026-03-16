@@ -1,16 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { predictBatch } from "../api";
+import { useWebSocket } from "../hooks/useWebSocket";
 
 export default function UploadBatch({ onBatchPredict }) {
   const [file, setFile] = useState(null);
   const [batchResults, setBatchResults] = useState([]);
   const [batchSummary, setBatchSummary] = useState(null);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
+
+  // WebSocket integration
+  const { lastMessage } = useWebSocket();
+
+  useEffect(() => {
+    if (lastMessage?.type === "batch_prediction") {
+      console.log(`Batch processed: ${lastMessage.total_transactions} transactions`);
+      console.log(`Fraud detected: ${lastMessage.fraud_count}`);
+    }
+  }, [lastMessage]);
 
   const handleUpload = async () => {
-    if (!file) return alert("Please select a CSV file!");
+    if (!file) {
+      setError("Please select a CSV file!");
+      return;
+    }
+
+    setProcessing(true);
+    setError(null);
 
     try {
-      const res = await predictBatch(file); 
+      const res = await predictBatch(file);
       const results = res.data.results || [];
       setBatchResults(results);
 
@@ -28,18 +47,42 @@ export default function UploadBatch({ onBatchPredict }) {
 
       if (onBatchPredict) onBatchPredict();
 
-      alert("Batch prediction completed!");
+      alert(`Batch prediction completed! Detected ${summary.fraud} fraud cases.`);
     } catch (err) {
       console.error("Batch prediction failed:", err);
-      alert("Batch prediction failed!");
+      setError(err.response?.data?.detail || "Batch prediction failed! Please check your CSV format.");
+    } finally {
+      setProcessing(false);
     }
+  };
+
+  // Validate CSV file
+  const validateCSV = (file) => {
+    return file && file.type === "text/csv";
   };
 
   return (
     <div style={{ marginTop: "20px" }}>
       <h3>Batch Transaction Prediction</h3>
-      <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files[0])} />
-      <button onClick={handleUpload} style={{ marginLeft: "10px" }}>Upload & Predict</button>
+      <input
+        type="file"
+        accept=".csv"
+        onChange={(e) => setFile(e.target.files[0])}
+        disabled={processing}
+      />
+      <button
+        onClick={handleUpload}
+        style={{ marginLeft: "10px" }}
+        disabled={processing || !file}
+      >
+        {processing ? "Processing..." : "Upload & Predict"}
+      </button>
+
+      {error && (
+        <div style={{ color: "red", marginTop: "10px" }}>
+          {error}
+        </div>
+      )}
 
       {batchSummary && (
         <div style={{ marginTop: "10px", padding: "10px", border: "1px solid #ccc", borderRadius: "8px" }}>
@@ -63,8 +106,11 @@ export default function UploadBatch({ onBatchPredict }) {
             </thead>
             <tbody>
               {batchResults.map((item, idx) => (
-                <tr key={idx} style={{ backgroundColor: item.fraud_probability >= 0.8 ? "#ffe6e6" : "transparent" }}>
-                  <td style={{ border: "1px solid #ccc", padding: "5px" }}>{item.transaction_id || idx + 1}</td>
+                <tr
+                  key={idx}
+                  style={{ backgroundColor: item.fraud_probability >= 0.8 ? "#ffe6e6" : "transparent" }}
+                >
+                  <td style={{ border: "1px solid #ccc", padding: "5px" }}>{item.transaction_id}</td>
                   <td style={{ border: "1px solid #ccc", padding: "5px" }}>{item.label}</td>
                   <td style={{ border: "1px solid #ccc", padding: "5px" }}>
                     {(item.fraud_probability * 100).toFixed(2)}%
